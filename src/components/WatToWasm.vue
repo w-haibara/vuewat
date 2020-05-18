@@ -301,8 +301,9 @@ export default {
       console.log("------------");
 
       const wat_code = this.wat_code
-        .replace(/(;;.*)$/g, "")
-        .replace(/\n|\t/g, " ");
+        .replace(/(;;.*)$/g, "") //line comment
+        .replace(/\n|\t/g, " ")
+        .replace(/(\(;).*(;\))/g, " "); //block comment
 
       const tokens = this.tokenize(wat_code);
       //this.printTokens(tokens);
