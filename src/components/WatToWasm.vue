@@ -168,7 +168,7 @@ export default {
       const i32_div_u = 0x6e;
       const i32_rem_s = 0x6f;
       const i32_rem_u = 0x70;
-*/
+      */
       const end = 0x0b;
 
       console.log(rootNode);
@@ -300,7 +300,9 @@ export default {
     wat2wasm() {
       console.log("------------");
 
-      const wat_code = this.wat_code.replace(/\n|\t/gm, " ");
+      const wat_code = this.wat_code
+        .replace(/(;;.*)$/g, "")
+        .replace(/\n|\t/g, " ");
 
       const tokens = this.tokenize(wat_code);
       //this.printTokens(tokens);
