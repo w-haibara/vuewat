@@ -280,10 +280,11 @@ export default {
 
       let tokens = [];
 
-      code = code.replace(/\(/g, " ( ");
-      code = code.replace(/\)/g, " ) ");
-      code = code.replace(/^(\s+)/, "");
-      code = code.replace(/(\s+)$/, "");
+      code = code
+        .replace(/\(/g, " ( ")
+        .replace(/\)/g, " ) ")
+        .replace(/^(\s+)/, "")
+        .replace(/(\s+)$/, "");
 
       for (let cur of code.split(/\s+/)) {
         if (cur.match(/^\(/) != null) {
