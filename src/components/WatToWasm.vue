@@ -4,7 +4,7 @@
       <v-container fluid>
         <v-btn v-on:click="wat2wasm()">Wat->Wasm</v-btn>
         <v-btn v-on:click="runWasm()">Run</v-btn>
-        <v-dialog v-if="errorReported" v-model="dialog" scrollable max-width="70%">
+        <v-dialog v-if="errorReported" v-model="errorDialog" scrollable max-width="70%">
           <template v-slot:activator="{ on }">
             <v-btn color="error" dark v-on="on">Error</v-btn>
           </template>
@@ -53,7 +53,7 @@
               auto-grow
               background-color="grey lighten-5"
               color="grey darken-4"
-              v-model="wasm_code"
+              v-model="wat_code"
             ></v-textarea>
           </v-col>
           <v-col cols="12" sm="6">
@@ -65,7 +65,7 @@
               auto-grow
               background-color="grey lighten-5"
               color="grey darken-4"
-              v-model="wat_code_disp"
+              v-model="wasm_code_disp"
             ></v-textarea>
           </v-col>
         </v-row>
@@ -96,76 +96,101 @@ export default {
     js_code:
       "const instance = new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(code)));\nreturn 'result: ' + instance.exports.add(3, 5);",
     output: "",
-    wasm_code:
+    wat_code:
       '(module\n\t(func $add (param $lhs i32) (param $rhs i32) (result i32)\n\t\tlocal.get $lhs\n\t\tlocal.get $rhs\n\t\ti32.add)\n\t(export "add" (func $add))\n)',
-    wat_code: [
-      0x00,
-      0x61,
-      0x73,
-      0x6d,
-      0x01,
-      0x00,
-      0x00,
-      0x00,
-      0x01,
-      0x87,
-      0x80,
-      0x80,
-      0x80,
-      0x00,
-      0x01,
-      0x60,
-      0x02,
-      0x7f,
-      0x7f,
-      0x01,
-      0x7f,
-      0x03,
-      0x82,
-      0x80,
-      0x80,
-      0x80,
-      0x00,
-      0x01,
-      0x00,
-      0x07,
-      0x87,
-      0x80,
-      0x80,
-      0x80,
-      0x00,
-      0x01,
-      0x03,
-      0x61,
-      0x64,
-      0x64,
-      0x00,
-      0x00,
-      0x0a,
-      0x8d,
-      0x80,
-      0x80,
-      0x80,
-      0x00,
-      0x01,
-      0x87,
-      0x80,
-      0x80,
-      0x80,
-      0x00,
-      0x00,
-      0x20,
-      0x00,
-      0x20,
-      0x01,
-      0x6a,
-      0x0b
-    ],
-    wat_code_disp: "",
+    wasm_code: [],
+    wasm_code_disp: "",
     errorMsg: "",
+    errorDialog: "false",
     errorReported: false
   }),
   methods: {
+    emitter(rootNode) {
+      const magicModuleHeader = [0x00, 0x61, 0x73, 0x6d];
+      const moduleVersion = [0x01, 0x00, 0x00, 0x00];
+
+      const tmp = [
+        0x01,
+        0x87,
+        0x80,
+        0x80,
+        0x80,
+        0x00,
+        0x01,
+        0x60,
+        0x02,
+        0x7f,
+        0x7f,
+        0x01,
+        0x7f,
+        0x03,
+        0x82,
+        0x80,
+        0x80,
+        0x80,
+        0x00,
+        0x01,
+        0x00,
+        0x07,
+        0x87,
+        0x80,
+        0x80,
+        0x80,
+        0x00,
+        0x01,
+        0x03,
+        0x61,
+        0x64,
+        0x64,
+        0x00,
+        0x00,
+        0x0a,
+        0x8d,
+        0x80,
+        0x80,
+        0x80,
+        0x00,
+        0x01,
+        0x87,
+        0x80,
+        0x80,
+        0x80,
+        0x00,
+        0x00
+      ];
+
+      const local_get = 0x20;
+      const i32_add = 0x6a;
+      /*
+      const i32_sub = 0x6b;
+      const i32_mul = 0x6c;
+      const i32_div_s = 0x6d;
+      const i32_div_u = 0x6e;
+      const i32_rem_s = 0x6f;
+      const i32_rem_u = 0x70;
+*/
+      const end = 0x0b;
+
+      console.log(rootNode);
+
+      let code = [];
+
+      code = magicModuleHeader.concat(moduleVersion);
+
+      code = code.concat(tmp);
+
+      code.push(local_get);
+      code.push(0x00);
+
+      code.push(local_get);
+      code.push(0x01);
+
+      code.push(i32_add);
+
+      code.push(end);
+
+      return code;
+    },
     printTree(root, index) {
       if (index === 0) {
         console.log("[printTree]");
@@ -183,45 +208,24 @@ export default {
         this.printTree(node, index);
       }
     },
-    multiWayTree() {
-      // ノードを作る
-      const a = new MultiWayTreeNode("A");
-      const b = new MultiWayTreeNode("B");
-      const c = new MultiWayTreeNode("C");
-      const d = new MultiWayTreeNode("D");
-      const e = new MultiWayTreeNode("E");
-      const f = new MultiWayTreeNode("F");
-      const g = new MultiWayTreeNode("G");
-      const h = new MultiWayTreeNode("H");
-
-      // 各ノードをつなぐ
-      a.children.push(b);
-
-      b.children.push(c);
-      b.children.push(d);
-      b.children.push(e);
-
-      c.children.push(f);
-      d.children.push(g);
-      d.children.push(h);
-
-      this.printTree(a, 0);
-    },
     printTokens(tokens) {
       console.log("[printTokens]");
       for (let token of tokens) {
         console.log("  " + token.type + ": " + token.value);
       }
     },
-    /* 子ノードをそれぞれのトークン列に分割 */
-    parseChildren(tokens, parent) {
-      if (
-        tokens[0].type != "rpar" ||
-        tokens[tokens.length - 1].type != "lpar"
-      ) {
-        return null;
+    makeChilfNode(token, parentNode) {
+      const node = new MultiWayTreeNode(token.value); //ノードを設定
+
+      // 親ノードと着目しているノードを繋げる
+      if (parentNode != null) {
+        parentNode.children.push(node);
       }
 
+      return node;
+    },
+    /* 子ノードをそれぞれのトークン列に分割 */
+    parseChildren(tokens, parentNode) {
       let childrenTokens = [];
       let childrenIndex = 0;
       let rpar = 0;
@@ -235,8 +239,6 @@ export default {
         }
 
         if (rpar === lpar) {
-          console.log(childrenIndex + " " + (i + 1));
-          console.log(tokens.slice(childrenIndex, i + 1));
           childrenTokens.push(tokens.slice(childrenIndex, i + 1));
           childrenIndex = i + 1;
         }
@@ -244,36 +246,28 @@ export default {
 
       for (let token of childrenTokens) {
         //console.log(token);
-        this.parse(token, parent);
+        this.parse(token, parentNode);
       }
     },
     parse(tokens, parentNode) {
       /* parse時のエラーの報告 */
+      /*
       function parseError(msg) {
         console.error("parse error [" + msg + "]");
       }
+      */
 
       console.log("[parse]");
 
-      if (tokens[0].type != "rpar") {
-        parseError("最初の(がないよ tokens[0].type:" + tokens[0].type);
+      if (tokens[0].type === "rpar") {
+        tokens.shift(); // 最初の(を削除
       }
-      if (tokens[tokens.length - 1].type != "lpar") {
-        parseError(
-          "最後の)がないよ tokens[tokens.length - 1].type:" +
-            tokens[tokens.length - 1].type
-        );
+      if (tokens[tokens.length - 1].type === "lpar") {
+        tokens.pop(); // 最後の)を削除
       }
-      tokens.shift(); // 最初の(を削除
-      tokens.pop(); // 最後の)を削除
 
-      const node = new MultiWayTreeNode(tokens[0].value); //ノードを設定
+      const node = this.makeChilfNode(tokens[0], parentNode);
       tokens.shift(); // トークン列から設定したノードに該当するトークンを削除
-
-      // 親ノードと着目しているノードを繋げる
-      if (parentNode != null) {
-        parentNode.children.push(node);
-      }
 
       if (tokens.length != 0) {
         this.parseChildren(tokens, node);
@@ -306,16 +300,17 @@ export default {
     wat2wasm() {
       console.log("------------");
 
-      let code = this.wasm_code;
-      code = code.replace(/\n|\t/gm, "");
+      const wat_code = this.wat_code.replace(/\n|\t/gm, " ");
 
-      const tokens = this.tokenize(code);
-      this.printTokens(tokens);
+      const tokens = this.tokenize(wat_code);
+      //this.printTokens(tokens);
 
       const rootNode = this.parse(tokens, null);
-      this.printTree(rootNode, 0);
+      //this.printTree(rootNode, 0);
 
-      //      this.multiWayTree();
+      const wasm_code = this.emitter(rootNode);
+      this.wasm_code = wasm_code;
+      this.toDispCode();
 
       console.log("------------");
     },
@@ -327,32 +322,33 @@ export default {
       return (Array(len).join("0") + num).slice(-len);
     },
     toDispCode() {
-      for (let i in this.wat_code) {
-        this.wat_code_disp +=
+      this.wasm_code_disp = [];
+
+      for (let i in this.wasm_code) {
+        this.wasm_code_disp +=
           (i % 8 || i == 0 ? "" : " ") +
           (i % 16 || i == 0 ? "" : "\n") +
-          this.zeroPadding(this.wat_code[i].toString(16), 2) +
-          (i != this.wat_code.length - 1 ? " " : "");
+          this.zeroPadding(this.wasm_code[i].toString(16), 2) +
+          (i != this.wasm_code.length - 1 ? " " : "");
       }
     },
     toRowCode() {
       console.log("toRowCode");
 
-      this.wat_code = [];
+      this.wasm_code = [];
+      let code = this.wasm_code_disp.replace(/\s+/g, "");
 
-      let code = this.wat_code_disp;
-
-      for (let elem of code.split(/\s+/)) {
-        this.wat_code.push("0x" + elem);
+      for (let i = 0; i < code.length; i += 2) {
+        this.wasm_code.push("0x" + code.slice(i, i + 2));
       }
 
-      console.log(this.wat_code);
+      console.log(this.wasm_code);
     },
     runWasm() {
       console.log("[runWasm]");
 
       this.toRowCode();
-      const code = this.wat_code;
+      const code = this.wasm_code;
 
       let functionBody = this.js_code.replace(/\n|\t/g, "");
       const run = new Function("code", functionBody);
