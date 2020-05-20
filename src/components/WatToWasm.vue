@@ -105,6 +105,189 @@ export default {
     errorReported: false
   }),
   methods: {
+    /*--------------------*
+     * Util
+     *--------------------*/
+    reportError(msg) {
+      this.errorMsg = msg;
+      this.errorReported = true;
+    },
+    clearError() {
+      this.errorMsg = "";
+      this.errorReported = false;
+    },
+    zeroPadding(num, len) {
+      return (Array(len).join("0") + num).slice(-len);
+    },
+    toDispCode() {
+      this.wasm_code_disp = [];
+
+      for (let i in this.wasm_code) {
+        this.wasm_code_disp +=
+          (i % 8 || i == 0 ? "" : " ") +
+          (i % 16 || i == 0 ? "" : "\n") +
+          this.zeroPadding(this.wasm_code[i].toString(16), 2) +
+          (i != this.wasm_code.length - 1 ? " " : "");
+      }
+    },
+    toRowCode() {
+      console.log("[toRowCode]");
+
+      this.wasm_code = [];
+      if (this.wasm_code_disp.length === 0) {
+        console.log("wasm_code_disp is empty");
+        return;
+      }
+
+      let code = this.wasm_code_disp;
+      code = code.replace(/\s+/g, "");
+
+      for (let i = 0; i < code.length; i += 2) {
+        this.wasm_code.push("0x" + code.slice(i, i + 2));
+      }
+    },
+    runWasm() {
+      console.log("[runWasm]");
+
+      this.clearError();
+
+      this.toRowCode();
+
+      const code = this.wasm_code;
+
+      let functionBody = this.js_code.replace(/\n|\t/g, "");
+      const run = new Function("code", functionBody);
+
+      try {
+        const result = run(code);
+        this.output = result;
+      } catch (e) {
+        this.reportError(e);
+      }
+    },
+
+    /*--------------------*
+     * Compiler
+     *--------------------*/
+
+    /*
+     * Tokenizer
+     */
+    printTokens(tokens) {
+      console.log("[printTokens]");
+      for (let token of tokens) {
+        console.log("  " + token.type + ": " + token.value);
+      }
+    },
+    tokenize(code) {
+      console.log("[tokenize]");
+
+      let tokens = [];
+
+      code = code
+        .replace(/\(/g, " ( ")
+        .replace(/\)/g, " ) ")
+        .replace(/^(\s+)/, "")
+        .replace(/(\s+)$/, "");
+
+      for (let cur of code.split(/\s+/)) {
+        if (cur.match(/^\(/) != null) {
+          tokens.push(new Token(cur, "rpar"));
+        } else if (cur.match(/\)$/) != null) {
+          tokens.push(new Token(cur, "lpar"));
+        } else {
+          tokens.push(new Token(cur, "elem"));
+        }
+      }
+
+      return tokens;
+    },
+
+    /*
+     * Parser
+     */
+    printTree(root, index) {
+      if (index === 0) {
+        console.log("[printTree]");
+      }
+
+      if (root === null) {
+        return;
+      }
+
+      console.log("  node" + index + " " + root.value);
+
+      ++index;
+
+      for (let node of root.children) {
+        this.printTree(node, index);
+      }
+    },
+    makeChilfNode(token, parentNode) {
+      const node = new MultiWayTreeNode(token.value); //ノードを設定
+
+      // 親ノードと着目しているノードを繋げる
+      if (parentNode != null) {
+        parentNode.children.push(node);
+      }
+
+      return node;
+    },
+    /* 子ノードをそれぞれのトークン列に分割 */
+    parseChildren(tokens, parentNode) {
+      let childrenTokens = [];
+      let childrenIndex = 0;
+      let rpar = 0;
+      let lpar = 0;
+
+      for (let i = 0; i < tokens.length; i++) {
+        if (tokens[i].type === "rpar") {
+          ++rpar;
+        } else if (tokens[i].type === "lpar") {
+          ++lpar;
+        }
+
+        if (rpar === lpar) {
+          childrenTokens.push(tokens.slice(childrenIndex, i + 1));
+          childrenIndex = i + 1;
+        }
+      }
+
+      for (let token of childrenTokens) {
+        //console.log(token);
+        this.parse(token, parentNode);
+      }
+    },
+    parse(tokens, parentNode) {
+      /* parse時のエラーの報告 */
+      /*
+      function parseError(msg) {
+        console.error("parse error [" + msg + "]");
+      }
+      */
+
+      console.log("[parse]");
+
+      if (tokens[0].type === "rpar") {
+        tokens.shift(); // 最初の(を削除
+      }
+      if (tokens[tokens.length - 1].type === "lpar") {
+        tokens.pop(); // 最後の)を削除
+      }
+
+      const node = this.makeChilfNode(tokens[0], parentNode);
+      tokens.shift(); // トークン列から設定したノードに該当するトークンを削除
+
+      if (tokens.length != 0) {
+        this.parseChildren(tokens, node);
+      }
+
+      return node;
+    },
+
+    /*
+     * Emitter
+     */
     emitter(rootNode) {
       const magicModuleHeader = [0x00, 0x61, 0x73, 0x6d];
       const moduleVersion = [0x01, 0x00, 0x00, 0x00];
@@ -171,11 +354,21 @@ export default {
       */
       const end = 0x0b;
 
+      //      let currentNodeIndex = 0;
+
+      //      function eatNode(length) {}
+
       console.log(rootNode);
 
       let code = [];
 
-      code = magicModuleHeader.concat(moduleVersion);
+      console.log(rootNode.value);
+      if (rootNode.value === "module") {
+        code = magicModuleHeader.concat(moduleVersion);
+      } else {
+        this.reportError("'module' not found");
+        return [];
+      }
 
       code = code.concat(tmp);
 
@@ -191,115 +384,12 @@ export default {
 
       return code;
     },
-    printTree(root, index) {
-      if (index === 0) {
-        console.log("[printTree]");
-      }
 
-      if (root === null) {
-        return;
-      }
-
-      console.log("  node" + index + " " + root.value);
-
-      ++index;
-
-      for (let node of root.children) {
-        this.printTree(node, index);
-      }
-    },
-    printTokens(tokens) {
-      console.log("[printTokens]");
-      for (let token of tokens) {
-        console.log("  " + token.type + ": " + token.value);
-      }
-    },
-    makeChilfNode(token, parentNode) {
-      const node = new MultiWayTreeNode(token.value); //ノードを設定
-
-      // 親ノードと着目しているノードを繋げる
-      if (parentNode != null) {
-        parentNode.children.push(node);
-      }
-
-      return node;
-    },
-    /* 子ノードをそれぞれのトークン列に分割 */
-    parseChildren(tokens, parentNode) {
-      let childrenTokens = [];
-      let childrenIndex = 0;
-      let rpar = 0;
-      let lpar = 0;
-
-      for (let i = 0; i < tokens.length; i++) {
-        if (tokens[i].type === "rpar") {
-          ++rpar;
-        } else if (tokens[i].type === "lpar") {
-          ++lpar;
-        }
-
-        if (rpar === lpar) {
-          childrenTokens.push(tokens.slice(childrenIndex, i + 1));
-          childrenIndex = i + 1;
-        }
-      }
-
-      for (let token of childrenTokens) {
-        //console.log(token);
-        this.parse(token, parentNode);
-      }
-    },
-    parse(tokens, parentNode) {
-      /* parse時のエラーの報告 */
-      /*
-      function parseError(msg) {
-        console.error("parse error [" + msg + "]");
-      }
-      */
-
-      console.log("[parse]");
-
-      if (tokens[0].type === "rpar") {
-        tokens.shift(); // 最初の(を削除
-      }
-      if (tokens[tokens.length - 1].type === "lpar") {
-        tokens.pop(); // 最後の)を削除
-      }
-
-      const node = this.makeChilfNode(tokens[0], parentNode);
-      tokens.shift(); // トークン列から設定したノードに該当するトークンを削除
-
-      if (tokens.length != 0) {
-        this.parseChildren(tokens, node);
-      }
-
-      return node;
-    },
-    tokenize(code) {
-      console.log("[tokenize]");
-
-      let tokens = [];
-
-      code = code
-        .replace(/\(/g, " ( ")
-        .replace(/\)/g, " ) ")
-        .replace(/^(\s+)/, "")
-        .replace(/(\s+)$/, "");
-
-      for (let cur of code.split(/\s+/)) {
-        if (cur.match(/^\(/) != null) {
-          tokens.push(new Token(cur, "rpar"));
-        } else if (cur.match(/\)$/) != null) {
-          tokens.push(new Token(cur, "lpar"));
-        } else {
-          tokens.push(new Token(cur, "elem"));
-        }
-      }
-
-      return tokens;
-    },
+    /*
+     * War code to Wasm bytecode
+     */
     wat2wasm() {
-      console.log("------------");
+      this.clearError();
 
       const wat_code = this.wat_code
         .replace(/(;;.*)$/g, "") //line comment
@@ -313,61 +403,13 @@ export default {
       //this.printTree(rootNode, 0);
 
       const wasm_code = this.emitter(rootNode);
+      if (wasm_code === null) {
+        return null;
+      }
       this.wasm_code = wasm_code;
       this.toDispCode();
-
-      console.log("------------");
-    },
-
-    /* 
-    foo
-    */
-    zeroPadding(num, len) {
-      return (Array(len).join("0") + num).slice(-len);
-    },
-    toDispCode() {
-      this.wasm_code_disp = [];
-
-      for (let i in this.wasm_code) {
-        this.wasm_code_disp +=
-          (i % 8 || i == 0 ? "" : " ") +
-          (i % 16 || i == 0 ? "" : "\n") +
-          this.zeroPadding(this.wasm_code[i].toString(16), 2) +
-          (i != this.wasm_code.length - 1 ? " " : "");
-      }
-    },
-    toRowCode() {
-      console.log("toRowCode");
-
-      this.wasm_code = [];
-      let code = this.wasm_code_disp.replace(/\s+/g, "");
-
-      for (let i = 0; i < code.length; i += 2) {
-        this.wasm_code.push("0x" + code.slice(i, i + 2));
-      }
-
-      console.log(this.wasm_code);
-    },
-    runWasm() {
-      console.log("[runWasm]");
-
-      this.toRowCode();
-      const code = this.wasm_code;
-
-      let functionBody = this.js_code.replace(/\n|\t/g, "");
-      const run = new Function("code", functionBody);
-
-      try {
-        const result = run(code);
-        this.output = result;
-        this.errorReported = false;
-      } catch (e) {
-        this.errorMsg = e;
-        this.errorReported = true;
-      }
     }
   },
-  watch: {},
   created() {
     this.toDispCode();
   },
