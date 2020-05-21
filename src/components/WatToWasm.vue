@@ -1,20 +1,42 @@
-<template>
+<template class="page">
   <div class="background">
     <v-content>
       <v-container fluid>
         <v-btn v-on:click="wat2wasm()">Wat->Wasm</v-btn>
+
+        <v-dialog
+          v-model="viewTreeDialog"
+          fullscreen
+          scrollable="true"
+          transition="dialog-bottom-transition"
+        >
+          <template v-slot:activator="{ on }">
+            <v-btn v-on="on">View Tree</v-btn>
+          </template>
+          <v-card class="background">
+            <v-card-title>Tree</v-card-title>
+            <div style="margin-right:auto;">
+              <v-card-actions>
+                <v-btn v-on:click="viewTreeDialog=false">Close</v-btn>
+              </v-card-actions>
+            </div>
+            <v-card-text>
+              <TreeView :moduleTree="treeRoot" />
+            </v-card-text>
+          </v-card>
+        </v-dialog>
+
         <v-btn v-on:click="runWasm()">Run</v-btn>
+
         <v-dialog v-if="errorReported" v-model="errorDialog" scrollable max-width="70%">
           <template v-slot:activator="{ on }">
-            <v-btn color="error" dark v-on="on">Error</v-btn>
+            <v-btn color="error" v-on="on">Error</v-btn>
           </template>
           <v-card>
             <v-card-title>Error log</v-card-title>
-            <v-divider></v-divider>
             <v-card-text style="height: 300px;">
               <p>{{ errorMsg }}</p>
             </v-card-text>
-            <v-divider></v-divider>
           </v-card>
         </v-dialog>
 
@@ -76,6 +98,8 @@
 
 
 <script>
+import TreeView from "./TreeView";
+
 class Token {
   constructor(value, type) {
     this.value = value;
@@ -92,6 +116,9 @@ class MultiWayTreeNode {
 
 export default {
   nam: "WatToWasm",
+  components: {
+    TreeView
+  },
   data: () => ({
     js_code:
       "const instance = new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(code)));\nreturn 'result: ' + instance.exports.add(3, 5);",
@@ -102,7 +129,9 @@ export default {
     wasm_code_disp: "",
     errorMsg: "",
     errorDialog: "false",
-    errorReported: false
+    errorReported: false,
+    viewTreeDialog: false,
+    treeRoot: { value: "" }
   }),
   methods: {
     /*--------------------*
@@ -358,11 +387,11 @@ export default {
 
       //      function eatNode(length) {}
 
-      console.log(rootNode);
+      //      console.log(rootNode);
 
       let code = [];
 
-      console.log(rootNode.value);
+      //      console.log(rootNode.value);
       if (rootNode.value === "module") {
         code = magicModuleHeader.concat(moduleVersion);
       } else {
@@ -400,6 +429,15 @@ export default {
       //this.printTokens(tokens);
 
       const rootNode = this.parse(tokens, null);
+      this.treeRoot = rootNode;
+
+      ///////////////////////////////////////////////////////////
+      ///////////////////////////////////////////////////////////
+      ///////////////////////////////////////////////////////////
+
+      ///////////////////////////////////////////////////////////
+      ///////////////////////////////////////////////////////////
+      ///////////////////////////////////////////////////////////
       //this.printTree(rootNode, 0);
 
       const wasm_code = this.emitter(rootNode);

@@ -2,7 +2,7 @@
   <v-app>
     <v-app-bar app color="primary" dark></v-app-bar>
 
-    <WatToWasm />
+    <WatToWasm class="page" />
   </v-app>
 </template>
 
@@ -21,6 +21,19 @@ export default {
   })
 };
 </script>
+
+<style scoped>
+.page {
+  height: 100vh;
+  overflow: scroll;
+  -ms-overflow-style: none; /* for IE, Edge */
+  scrollbar-width: none; /* for Firefox */
+}
+.page::-webkit-scrollbar {
+  /* forChrome, Safari */
+  display: none;
+}
+</style>
 
 <style>
 .background {
