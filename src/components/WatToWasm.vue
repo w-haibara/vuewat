@@ -7,13 +7,13 @@
         <v-dialog
           v-model="viewTreeDialog"
           fullscreen
-          scrollable="true"
+          scrollable
           transition="dialog-bottom-transition"
         >
           <template v-slot:activator="{ on }">
             <v-btn v-on="on">View Tree</v-btn>
           </template>
-          <v-card class="background">
+          <v-card>
             <v-card-title>Tree</v-card-title>
             <div style="margin-right:auto;">
               <v-card-actions>
@@ -317,17 +317,13 @@ export default {
     /*
      * Emitter
      */
-    emitter(rootNode) {
+    emitter(node) {
       const magicModuleHeader = [0x00, 0x61, 0x73, 0x6d];
       const moduleVersion = [0x01, 0x00, 0x00, 0x00];
 
       const tmp = [
         0x01,
-        0x87,
-        0x80,
-        0x80,
-        0x80,
-        0x00,
+        0x07,
         0x01,
         0x60,
         0x02,
@@ -336,19 +332,11 @@ export default {
         0x01,
         0x7f,
         0x03,
-        0x82,
-        0x80,
-        0x80,
-        0x80,
-        0x00,
+        0x02,
         0x01,
         0x00,
         0x07,
-        0x87,
-        0x80,
-        0x80,
-        0x80,
-        0x00,
+        0x07,
         0x01,
         0x03,
         0x61,
@@ -356,60 +344,79 @@ export default {
         0x64,
         0x00,
         0x00,
-        0x0a,
-        0x8d,
-        0x80,
-        0x80,
-        0x80,
-        0x00,
-        0x01,
-        0x87,
-        0x80,
-        0x80,
-        0x80,
-        0x00,
-        0x00
+        0x0a
       ];
 
       const local_get = 0x20;
       const i32_add = 0x6a;
-      /*
       const i32_sub = 0x6b;
       const i32_mul = 0x6c;
       const i32_div_s = 0x6d;
       const i32_div_u = 0x6e;
       const i32_rem_s = 0x6f;
       const i32_rem_u = 0x70;
-      */
       const end = 0x0b;
-
-      //      let currentNodeIndex = 0;
-
-      //      function eatNode(length) {}
-
-      //      console.log(rootNode);
 
       let code = [];
 
-      //      console.log(rootNode.value);
-      if (rootNode.value === "module") {
+      if (node.value === "module") {
         code = magicModuleHeader.concat(moduleVersion);
       } else {
         this.reportError("'module' not found");
         return [];
       }
 
-      code = code.concat(tmp);
-
-      code.push(local_get);
-      code.push(0x00);
-
-      code.push(local_get);
-      code.push(0x01);
-
-      code.push(i32_add);
+      for (let rootChild of node.children) {
+        switch (rootChild.value) {
+          case "func":
+            {
+              let count = rootChild.children.slice(4).length + 2;
+              code = code.concat(tmp).concat(count + 2, 0x01, count, 0x00);
+            }
+            for (let node of rootChild.children.slice(4)) {
+              switch (node.value) {
+                case "local.get":
+                  code.push(local_get);
+                  break;
+                case "i32.add":
+                  code.push(i32_add);
+                  break;
+                case "i32.sub":
+                  code.push(i32_sub);
+                  break;
+                case "i32.mul":
+                  code.push(i32_mul);
+                  break;
+                case "i32.div_s":
+                  code.push(i32_div_s);
+                  break;
+                case "i32.div_u":
+                  code.push(i32_div_u);
+                  break;
+                case "i32.rem_s":
+                  code.push(i32_rem_s);
+                  break;
+                case "i32.rem_u":
+                  code.push(i32_rem_u);
+                  break;
+                case "$lhs":
+                  code.push(0x00);
+                  break;
+                case "$rhs":
+                  code.push(0x01);
+                  break;
+              }
+            }
+            break;
+          case "export":
+            this.printTree(rootChild, 0);
+            break;
+        }
+      }
 
       code.push(end);
+
+      console.log(code);
 
       return code;
     },
@@ -421,9 +428,9 @@ export default {
       this.clearError();
 
       const wat_code = this.wat_code
-        .replace(/(;;.*)$/g, "") //line comment
+        .replace(/(;;.*)$/g, "") //delete line comments
         .replace(/\n|\t/g, " ")
-        .replace(/(\(;).*(;\))/g, " "); //block comment
+        .replace(/(\(;).*(;\))/g, " "); //delete block comments
 
       const tokens = this.tokenize(wat_code);
       //this.printTokens(tokens);
@@ -431,19 +438,7 @@ export default {
       const rootNode = this.parse(tokens, null);
       this.treeRoot = rootNode;
 
-      ///////////////////////////////////////////////////////////
-      ///////////////////////////////////////////////////////////
-      ///////////////////////////////////////////////////////////
-
-      ///////////////////////////////////////////////////////////
-      ///////////////////////////////////////////////////////////
-      ///////////////////////////////////////////////////////////
-      //this.printTree(rootNode, 0);
-
       const wasm_code = this.emitter(rootNode);
-      if (wasm_code === null) {
-        return null;
-      }
       this.wasm_code = wasm_code;
       this.toDispCode();
     }
