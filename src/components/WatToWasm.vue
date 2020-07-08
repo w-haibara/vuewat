@@ -46,31 +46,6 @@
               class="codearea"
               spellcheck="false"
               filled
-              label="JS Code"
-              auto-grow
-              background-color="grey lighten-5"
-              color="grey darken-4"
-              v-model="js_code"
-            ></v-textarea>
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-textarea
-              class="codearea"
-              :readonly="true"
-              spellcheck="false"
-              filled
-              label="Output"
-              auto-grow
-              background-color="grey lighten-5"
-              color="grey darken-4"
-              v-model="output"
-            ></v-textarea>
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-textarea
-              class="codearea"
-              spellcheck="false"
-              filled
               label="Wat Code"
               auto-grow
               background-color="grey lighten-5"
@@ -90,7 +65,41 @@
               v-model="wasm_code_disp"
             ></v-textarea>
           </v-col>
+          <v-col cols="12" sm="6">
+            <v-card class="mx-auto">
+              <v-card-text>
+                <div class="text--primary">{{js_code}}{{wasm_function_name}}</div>
+              </v-card-text>
+              <v-card-actions>
+                <v-text-field label="function name & arguments" v-model="wasm_function_name"></v-text-field>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-textarea
+              class="codearea"
+              :readonly="true"
+              spellcheck="false"
+              filled
+              label="Output"
+              auto-grow
+              background-color="grey lighten-5"
+              color="grey darken-4"
+              v-model="output"
+            ></v-textarea>
+          </v-col>
         </v-row>
+        <v-card class="mx-auto">
+          <v-card-text>
+            <div class="text--primary">
+              <p class="display-1 text--primary">これはなに</p>
+              <p>"WAT->WASM"ボタンでWebAssembly Text Format → WebAssembly の変換を行います。</p>
+              <p>"VIEW TREE"ボタンで生成した WebAssembly バイナリのASTを表示します。</p>
+              <p>"RUN"ボタンで生成した WebAssembly バイナリを実行します</p>
+              <p>まだまだ開発中です。現在は関数名・引数・戻り値が固定された上で、引数同士の四則演算のみ可能です。</p>
+            </div>
+          </v-card-text>
+        </v-card>
       </v-container>
     </v-content>
   </div>
@@ -121,7 +130,8 @@ export default {
   },
   data: () => ({
     js_code:
-      "const instance = new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(code)));\nreturn 'result: ' + instance.exports.add(3, 5);",
+      "const instance = new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(code)));\nreturn 'result: ' + instance.exports.",
+    wasm_function_name: "add(3, 5)",
     output: "",
     wat_code:
       '(module\n\t(func $add (param $lhs i32) (param $rhs i32) (result i32)\n\t\tlocal.get $lhs\n\t\tlocal.get $rhs\n\t\ti32.add)\n\t(export "add" (func $add))\n)',
@@ -184,7 +194,7 @@ export default {
 
       const code = this.wasm_code;
 
-      let functionBody = this.js_code.replace(/\n|\t/g, "");
+      let functionBody = this.js_code + this.wasm_function_name + ";";
       const run = new Function("code", functionBody);
 
       try {
